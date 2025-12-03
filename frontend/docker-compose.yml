@@ -14,7 +14,7 @@ services:
       - ./:/usr/src/app
       - /usr/src/app/node_modules
 
-    command: sh -c "npm ci && npm start -- --host 0.0.0.0 --port 4200"
+    command: sh -c "npm start -- --host 0.0.0.0 --port 4200"
     networks:
       - app-network
   
