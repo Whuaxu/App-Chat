@@ -27,6 +27,8 @@ import { BcryptHasher } from '../services/hashPass.bcrypt';
 import { myUserService } from '../services/user.service';
 import { JWTService } from '../services/jwt.service';
 import { PasswordHasherBindings, TokenServiceBindings, UserServiceBindings } from '../keys';
+import { securityId, UserProfile } from '@loopback/security';
+import { authenticate, AuthenticationBindings } from '@loopback/authentication';
 
 export class UserController {
   constructor(
@@ -207,5 +209,14 @@ export class UserController {
     const token = await this.jwtService.generateToken(userProfile);
 
     return Promise.resolve({token});
+  }
+
+  @get('/users/me')
+  @authenticate('jwt')
+  async me(
+    @inject(AuthenticationBindings.CURRENT_USER)
+    currentUser: UserProfile,
+  ): Promise<UserProfile> {
+    return Promise.resolve(currentUser);
   }
 }
