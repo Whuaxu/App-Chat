@@ -22,20 +22,25 @@ import {Credentials, UserRepository} from '../repositories';
 import {validateCredentials} from '../services/validator';
 import * as lodash from 'lodash';
 import { inject } from '@loopback/core';
-import { BcryptHasher } from '../services/hashPass.bcrypt';
 import { CredentialsRequestBody } from './specs/user.controller.spec';
+import { BcryptHasher } from '../services/hashPass.bcrypt';
 import { myUserService } from '../services/user.service';
+import { JWTService } from '../services/jwt.service';
+import { PasswordHasherBindings, TokenServiceBindings, UserServiceBindings } from '../keys';
 
 export class UserController {
   constructor(
     @repository(UserRepository)
     public userRepository : UserRepository,
 
-    @inject('services.hasher')
+    @inject(PasswordHasherBindings.PASSWORD_HASHER)
     public hasher: BcryptHasher,
 
-    @inject('services.userService')
+    @inject(UserServiceBindings.USER_SERVICE)
     public userService: myUserService,
+
+    @inject(TokenServiceBindings.TOKEN_SERVICE)
+    public jwtService: JWTService,
   ) {}
 
   @post('/users')
@@ -196,11 +201,11 @@ export class UserController {
   async login(@requestBody(CredentialsRequestBody) credentials: Credentials): Promise<{token: string}> {
 
     const user = await this.userService.verifyCredentials(credentials);
-    console.log(user);
 
     const userProfile = this.userService.convertToUserProfile(user);
-    console.log(userProfile);
-    
-    return Promise.resolve({token: 'tokennn'});
+
+    const token = await this.jwtService.generateToken(userProfile);
+
+    return Promise.resolve({token});
   }
 }
