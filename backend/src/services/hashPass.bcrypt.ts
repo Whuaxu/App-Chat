@@ -1,5 +1,6 @@
 import { inject } from "@loopback/core";
 import { genSalt, hash, compare } from "bcryptjs"
+import { PasswordHasherBindings } from "../keys";
 
 export interface PasswordHasher <T=string> {
     
@@ -15,7 +16,7 @@ export class BcryptHasher implements PasswordHasher<string> {
         return passwordMatched;
     }
 
-    @inject('rounds')
+    @inject(PasswordHasherBindings.ROUNDS)
     public readonly rounds: number;
 
     async hashPassword(password: string) {

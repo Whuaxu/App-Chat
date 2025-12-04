@@ -11,6 +11,8 @@ import path from 'path';
 import {MySequence} from './sequence';
 import { BcryptHasher } from './services/hashPass.bcrypt';
 import { myUserService } from './services/user.service';
+import { JWTService } from './services/jwt.service';
+import { PasswordHasherBindings, TokenServiceBindings, TokenServiceConstants, UserServiceBindings } from './keys';
 
 export {ApplicationConfig};
 
@@ -21,9 +23,12 @@ export class ChatApplication extends BootMixin(
     super(options);
 
     // Set up bindings
-    this.bind('services.hasher').toClass(BcryptHasher);
-    this.bind('rounds').to(10);
-    this.bind('services.userService').toClass(myUserService);
+    this.bind(PasswordHasherBindings.PASSWORD_HASHER).toClass(BcryptHasher);
+    this.bind(PasswordHasherBindings.ROUNDS).to(10);
+    this.bind(UserServiceBindings.USER_SERVICE).toClass(myUserService);
+    this.bind(TokenServiceBindings.TOKEN_SERVICE).toClass(JWTService);
+    this.bind(TokenServiceBindings.TOKEN_SECRET).to(TokenServiceConstants.TOKEN_SECRET_VALUE);
+    this.bind(TokenServiceBindings.TOKEN_EXPIRES_IN).to(TokenServiceConstants.TOKEN_EXPIRES_IN_VALUE);
 
     // Set up the custom sequence
     this.sequence(MySequence);
@@ -51,9 +56,13 @@ export class ChatApplication extends BootMixin(
 
   setupBindings(): void {
     // Bind bcrypt hasher
-    this.bind('services.hasher').toClass(BcryptHasher);
-    this.bind('rounds').to(10);
-    this.bind('services.userService').toClass(myUserService);
+    this.bind(PasswordHasherBindings.PASSWORD_HASHER).toClass(BcryptHasher);
+    this.bind(PasswordHasherBindings.ROUNDS).to(10);
+    this.bind(UserServiceBindings.USER_SERVICE).toClass(myUserService);
+    this.bind(TokenServiceBindings.TOKEN_SERVICE).toClass(JWTService);
+    this.bind(TokenServiceBindings.TOKEN_SECRET).to(TokenServiceConstants.TOKEN_SECRET_VALUE);
+    this.bind(TokenServiceBindings.TOKEN_EXPIRES_IN).to(TokenServiceConstants.TOKEN_EXPIRES_IN_VALUE);
+
   }
   
 }
