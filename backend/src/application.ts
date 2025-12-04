@@ -13,6 +13,8 @@ import { BcryptHasher } from './services/hashPass.bcrypt';
 import { myUserService } from './services/user.service';
 import { JWTService } from './services/jwt.service';
 import { PasswordHasherBindings, TokenServiceBindings, TokenServiceConstants, UserServiceBindings } from './keys';
+import { AuthenticationComponent, registerAuthenticationStrategy } from '@loopback/authentication';
+import { JWTStrategy } from './auth-strategies/jwt.strategy';
 
 export {ApplicationConfig};
 
@@ -24,6 +26,9 @@ export class ChatApplication extends BootMixin(
 
     // Set up bindings
     this.setupBindings();
+
+    this.component(AuthenticationComponent);
+    registerAuthenticationStrategy(this, JWTStrategy);
     // Set up the custom sequence
     this.sequence(MySequence);
 
