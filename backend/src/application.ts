@@ -23,13 +23,7 @@ export class ChatApplication extends BootMixin(
     super(options);
 
     // Set up bindings
-    this.bind(PasswordHasherBindings.PASSWORD_HASHER).toClass(BcryptHasher);
-    this.bind(PasswordHasherBindings.ROUNDS).to(10);
-    this.bind(UserServiceBindings.USER_SERVICE).toClass(myUserService);
-    this.bind(TokenServiceBindings.TOKEN_SERVICE).toClass(JWTService);
-    this.bind(TokenServiceBindings.TOKEN_SECRET).to(TokenServiceConstants.TOKEN_SECRET_VALUE);
-    this.bind(TokenServiceBindings.TOKEN_EXPIRES_IN).to(TokenServiceConstants.TOKEN_EXPIRES_IN_VALUE);
-
+    this.setupBindings();
     // Set up the custom sequence
     this.sequence(MySequence);
 
