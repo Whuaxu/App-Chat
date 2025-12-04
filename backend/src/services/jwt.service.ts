@@ -36,6 +36,27 @@ export class JWTService {
 
     async verifyToken(token: string): Promise<UserProfile> {
         
-        return Promise.resolve({name: 'test', [securityId]: '123'});
+        if(!token){
+            throw new HttpErrors.Unauthorized('Error verifying token : token is null');
+        }
+
+        let userProfile: UserProfile;
+        
+        try{
+            const decryptedToken = await verifyAsync(token, this.jwtSecret);
+            
+            userProfile = Object.assign(
+                {[securityId]: '', name: ''},
+                {
+                    [securityId]: decryptedToken[securityId],
+                    name: decryptedToken.name,
+                }
+            );
+            
+        }catch(err){
+            throw new HttpErrors.Unauthorized(`Error verifying token : ${err}`);
+        }
+
+        return userProfile;
     }
 }
