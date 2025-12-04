@@ -1,0 +1,89 @@
+<div class="chat-app">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="app-title">Chats</div>
+            <button class="new-chat-btn" title="Nuevo chat">+</button>
+        </div>
+
+        <div class="sidebar-search">
+            <input type="text" placeholder="Buscar o empezar un chat" />
+        </div>
+
+        <div class="contact-list">
+            @for (contact of contacts; track contact.id) {
+            <div class="contact-item" [class.active]="activeContact?.id === contact.id"
+                (click)="selectContact(contact)">
+                <div class="contact-avatar">
+
+                    <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" focusable="false"
+                        xmlns="http://www.w3.org/2000/svg" role="img">
+                        <title>Avatar por defecto</title>
+
+                        <g fill="none" fill-rule="evenodd">
+                            <path
+                                d="M12 12.5c1.93 0 3.5-1.57 3.5-3.5S13.93 5.5 12 5.5 8.5 7.07 8.5 9s1.57 3.5 3.5 3.5zM4 19.5c0-2.76 2.24-5 5-5h6c2.76 0 5 2.24 5 5v.5H4v-.5z"
+                                fill="#ffffff" />
+                        </g>
+                    </svg>
+                </div>
+                <div class="contact-info">
+                    <div class="contact-top">
+                        <span class="contact-name">{{ contact.name }}</span>
+                        <span class="contact-time">{{ contact.lastTime }}</span>
+                    </div>
+                    <div class="contact-bottom">
+                        <span class="contact-last">{{ contact.lastMessage }}</span>
+                        @if (contact.unread) {
+                        <span class="contact-unread">{{ contact.unread }}</span>
+                        }
+                    </div>
+                </div>
+            </div>
+            }
+        </div>
+    </aside>
+
+    <main class="chat-main">
+
+        @if (activeContact) {
+        <header class="chat-header">
+            <button class="back-btn" (click)="activeContact = null" title="Volver">←</button>
+            <div class="header-avatar"></div>
+            <div class="header-info">
+                <h3 class="chat-title">{{ activeContact.name }}</h3>
+                <span class="header-status">en línea</span>
+            </div>
+
+            <div class="header-actions">
+                <button class="p-2" title="Llamar">📞</button>
+                <button class="p-2" title="Más">⋯</button>
+            </div>
+
+        </header>
+
+        <div #messagesContainer class="messages-container">
+            
+            @for (msg of messages; track msg.id) {
+            <div class="message-wrapper" [class.from-me]="msg.fromMe">
+                <div class="message-bubble">
+                    <span class="message-text">{{ msg.text }}</span>
+                    <div class="message-meta">
+                        <span class="message-time">{{ msg.time }}</span>
+                    </div>
+                </div>
+            </div>
+            }
+        </div>
+
+        <footer class="chat-input">
+            <textarea [value]="newMessage" (input)="newMessage = $any($event.target).value" (keydown)="onEnter($event)"
+                placeholder="Escribe un mensaje"></textarea>
+            <button (click)="sendMessage()" class="send-btn">Enviar</button>
+        </footer>
+        } @else {
+        <div class="empty-chat">
+            <p>Selecciona un chat para empezar a conversar</p>
+        </div>
+        }
+    </main>
+</div>
