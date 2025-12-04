@@ -18,18 +18,24 @@ import {
   response,
 } from '@loopback/rest';
 import {User} from '../models';
-import {UserRepository} from '../repositories';
+import {Credentials, UserRepository} from '../repositories';
 import {validateCredentials} from '../services/validator';
 import * as lodash from 'lodash';
 import { inject } from '@loopback/core';
 import { BcryptHasher } from '../services/hashPass.bcrypt';
+import { CredentialsRequestBody } from './specs/user.controller.spec';
+import { myUserService } from '../services/user.service';
 
 export class UserController {
   constructor(
     @repository(UserRepository)
     public userRepository : UserRepository,
+
     @inject('services.hasher')
     public hasher: BcryptHasher,
+
+    @inject('services.userService')
+    public userService: myUserService,
   ) {}
 
   @post('/users')
@@ -154,7 +160,7 @@ export class UserController {
     await this.userRepository.deleteById(id);
   }
 
-  @post('/signup')
+  @post('/users/signup')
   @response(200, {
     description: 'Signup a new user',
     content: {'application/json': {schema: getModelSchemaRef(User)}},
@@ -163,10 +169,38 @@ export class UserController {
   async signup(@requestBody() userData: User) {
 
     userData.password = await this.hasher.hashPassword(userData.password);
-    
+
     validateCredentials(lodash.pick(userData, ['email', 'password']));
     const savedUser = await this.userRepository.create(userData);
     return savedUser;
 
+  }
+
+
+  @post('/users/login')
+  @response(200, {
+    description: 'Token for user login',
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            token: {
+              type: 'string',
+            },
+          },
+        },
+      },
+    },
+  })
+  async login(@requestBody(CredentialsRequestBody) credentials: Credentials): Promise<{token: string}> {
+
+    const user = await this.userService.verifyCredentials(credentials);
+    console.log(user);
+
+    const userProfile = this.userService.convertToUserProfile(user);
+    console.log(userProfile);
+    
+    return Promise.resolve({token: 'tokennn'});
   }
 }
