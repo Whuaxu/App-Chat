@@ -44,14 +44,13 @@ export class JWTService {
         
         try{
             const decryptedToken = await verifyAsync(token, this.jwtSecret);
-            
-            userProfile = Object.assign(
-                {[securityId]: '', name: ''},
-                {
-                    [securityId]: decryptedToken[securityId],
-                    name: decryptedToken.name,
-                }
-            );
+
+            userProfile = {
+                [securityId]: decryptedToken[securityId] || decryptedToken.id,
+                id: decryptedToken.id,
+                email: decryptedToken.email,
+                username: decryptedToken.username,
+            };
             
         }catch(err){
             throw new HttpErrors.Unauthorized(`Error verifying token : ${err}`);
