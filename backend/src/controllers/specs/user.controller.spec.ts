@@ -24,3 +24,22 @@ export const CredentialsRequestBody = {
     },
   },
 };
+
+export const UserRegistrationSchema: SchemaObject = {
+  type: 'object',
+  required: ['email', 'password', 'username'],
+  properties: {
+    email: {
+      type: 'string',
+      format: 'email',
+    },
+    password: {
+      type: 'string',
+      minLength: 8,
+    },
+    username: {
+      type: 'string',
+      minLength: 3,
+    },
+  },
+};
