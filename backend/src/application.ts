@@ -15,12 +15,16 @@ import { JWTService } from './services/jwt.service';
 import { PasswordHasherBindings, TokenServiceBindings, TokenServiceConstants, UserServiceBindings } from './keys';
 import { AuthenticationComponent, registerAuthenticationStrategy } from '@loopback/authentication';
 import { JWTStrategy } from './auth-strategies/jwt.strategy';
+import { Server } from 'socket.io';
 
 export {ApplicationConfig};
 
 export class ChatApplication extends BootMixin(
   ServiceMixin(RepositoryMixin(RestApplication)),
 ) {
+
+  public io: Server;
+
   constructor(options: ApplicationConfig = {}) {
     super(options);
 
@@ -53,6 +57,26 @@ export class ChatApplication extends BootMixin(
     };
   }
 
+  async setupSocketIO() {
+    await super.start();
+    
+    // Configura Socket.io
+    this.io = new Server(this.restServer.httpServer?.server, {
+      cors: {
+        origin: ['http://localhost:4201', 'http://localhost:4200'],
+        credentials: true,
+      },
+    });
+
+    this.io.on('connection', (socket) => {
+      console.log('User connected:', socket.id);
+      
+      socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+      });
+    });
+  }
+   
   setupBindings(): void {
     // Bind bcrypt hasher
     this.bind(PasswordHasherBindings.PASSWORD_HASHER).toClass(BcryptHasher);
