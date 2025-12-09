@@ -22,7 +22,7 @@ import {Credentials, UserRepository} from '../repositories';
 import {validateCredentials} from '../services/validator';
 import * as lodash from 'lodash';
 import { inject } from '@loopback/core';
-import { CredentialsRequestBody } from './specs/user.controller.spec';
+import { CredentialsRequestBody, UserRegistrationSchema } from './specs/user.controller.spec';
 import { BcryptHasher } from '../services/hashPass.bcrypt';
 import { myUserService } from '../services/user.service';
 import { JWTService } from '../services/jwt.service';
@@ -167,19 +167,32 @@ export class UserController {
     await this.userRepository.deleteById(id);
   }
 
-  @post('/users/signup')
+  @post('/users/register')
   @response(200, {
-    description: 'Signup a new user',
+    description: 'Register a new user',
     content: {'application/json': {schema: getModelSchemaRef(User)}},
   })
   
-  async signup(@requestBody() userData: User) {
-
-    userData.password = await this.hasher.hashPassword(userData.password);
-
+  async register(@requestBody({
+      content: {
+        'application/json': {
+          schema: UserRegistrationSchema,
+        },
+      },
+    }) userData: {email: string; password: string; username: string},
+  ): Promise<{token: string}> {
     validateCredentials(lodash.pick(userData, ['email', 'password']));
-    const savedUser = await this.userRepository.create(userData);
-    return savedUser;
+
+    const hashedPassword = await this.hasher.hashPassword(userData.password);
+    
+    const user = await this.userService.createUser({
+      ...userData,
+      password: hashedPassword,
+    });
+    const userProfile = this.userService.convertToUserProfile(user);
+    const token = await this.jwtService.generateToken(userProfile);
+
+    return Promise.resolve({token});
 
   }
 
@@ -200,7 +213,8 @@ export class UserController {
       },
     },
   })
-  async login(@requestBody(CredentialsRequestBody) credentials: Credentials): Promise<{token: string}> {
+  async login(@requestBody(CredentialsRequestBody) credentials: Credentials,
+): Promise<{token: string}> {
 
     const user = await this.userService.verifyCredentials(credentials);
 
@@ -211,8 +225,16 @@ export class UserController {
     return Promise.resolve({token});
   }
 
-  @get('/users/me')
   @authenticate('jwt')
+  @get('/users/me')
+  @response(200, {
+    description: 'Current user profile',
+    content: {
+      'application/json': {
+        schema: getModelSchemaRef(User, {exclude: ['password']}),
+      },
+    },
+  })
   async me(
     @inject(AuthenticationBindings.CURRENT_USER)
     currentUser: UserProfile,
