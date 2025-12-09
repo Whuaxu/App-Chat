@@ -7,6 +7,7 @@ import { HttpErrors } from "@loopback/rest";
 import { inject } from "@loopback/core";
 import { BcryptHasher } from "./hashPass.bcrypt";
 import { PasswordHasherBindings } from "../keys";
+import { hash } from "bcryptjs";
 
 export class myUserService implements UserService<User, Credentials> {
 
@@ -19,11 +20,7 @@ export class myUserService implements UserService<User, Credentials> {
 
     async verifyCredentials(credentials: Credentials): Promise<User> {
         
-        const foundUser = await this.userRepository.findOne({
-            where: {
-                email: credentials.email,
-            }
-        });
+        const foundUser = await this.userRepository.findByEmail(credentials.email);
 
         if(!foundUser){
             throw new HttpErrors.NotFound(`User not found with this ${credentials.email}`);
@@ -40,14 +37,27 @@ export class myUserService implements UserService<User, Credentials> {
 
     convertToUserProfile(user: User): UserProfile {
         
-        let userName = '';
-        if(user.firstName){
-            userName = user.firstName;
-        }
-
         return {
-            [securityId]: `${user.id}`,
-            name: userName
+            [securityId]: user.id!,
+            id: user.id,
+            email: user.email,
+            username: user.username,
         };
     }
+
+    async createUser(userData: Partial<User>): Promise<User> {
+
+        const existingUser = await this.userRepository.findByEmail(userData.email!);
+        if (existingUser) {
+            throw new HttpErrors.Conflict('User with this email already exists');
+        }
+
+        const user = await this.userRepository.create({
+        ...userData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        });
+
+        return user;
+  }
 }
