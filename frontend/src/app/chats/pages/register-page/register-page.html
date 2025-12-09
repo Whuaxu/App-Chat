@@ -54,7 +54,7 @@
               <span class="error">La contraseña es requerida</span>
             }
             @if (registerForm.get('password')?.touched && registerForm.get('password')?.errors?.['minlength']) {
-              <span class="error">Mínimo 6 caracteres</span>
+              <span class="error">Mínimo 8 caracteres</span>
             }
           </div>
           @if (errorMessage) {
