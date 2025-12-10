@@ -152,26 +152,34 @@ export default class ChatPage implements OnInit, OnDestroy {
       });
   }
 
-  private loadConversations(): void {
-    this.conversationService.getConversations().subscribe({
-      next: (conversations) => {
-        this.conversations = conversations;
-      },
-      error: (error) => {
-        console.error('Error loading conversations:', error);
-      }
-    });
+  private loadUsers(): void {
+    
+    this.userService.getUsers()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (users) => {
+          
+          this.availableUsers = users.filter(u => u.id !== this.currentUser?.id);
+        },
+        error: (error) => {
+          console.error('❌ Error loading users:', error);
+        }
+      });
   }
 
-  private loadUsers(): void {
-    this.userService.getUsers().subscribe({
-      next: (users) => {
-        this.availableUsers = users;
-      },
-      error: (error) => {
-        console.error('Error loading users:', error);
-      }
-    });
+  private loadConversations(): void {
+    
+    this.conversationService.getConversations()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (conversations) => {
+          
+          this.conversations = conversations;
+        },
+        error: (error) => {
+          console.error('❌ Error loading conversations:', error);
+        }
+      });
   }
 
   onConversationSelected(conversation: Conversation): void {
