@@ -112,9 +112,9 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   formatTime(date: Date | string): string {
-    const d = new Date(date);
-    return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
-  }
+  const d = typeof date === 'string' ? new Date(date) : date; 
+  return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+}
 
   onTyping(): void {
     this.wsService.sendTyping(this.conversation().id, true);
@@ -132,12 +132,23 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
     const content = this.newMessage().trim();
     if (!content) return;
 
-    this.messageSent.emit(content);
+    const message: Message = {
+      id: '', // El backend debería generar este ID
+      conversationId: this.conversation().id,
+      senderId: this.currentUser()?.id || '',
+      content,
+      createdAt: new Date(),
+      read: false
+    };
+
+    // Envía el mensaje al WebSocket
+    this.wsService.sendMessage(this.conversation().id, content);
+
+    // Añade el mensaje localmente para mostrarlo de inmediato
+    const updatedMessages = [...this.messages(), message];
+    this.messages.set(updatedMessages);
+
+    // Limpia el input
     this.newMessage.set('');
-    
-    if (this.typingTimeout) {
-      clearTimeout(this.typingTimeout);
-    }
-    this.wsService.sendTyping(this.conversation().id, false);
   }
 }
