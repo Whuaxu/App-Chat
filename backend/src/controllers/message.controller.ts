@@ -36,9 +36,10 @@ export class MessageController {
         'application/json': {
           schema: {
             type: 'object',
-            required: ['conversationId', 'content'],
+            required: ['conversationId', 'senderId', 'content'],
             properties: {
               conversationId: {type: 'string'},
+              senderId: {type: 'string'},
               content: {type: 'string'},
             },
           },
@@ -59,9 +60,7 @@ export class MessageController {
 
     // Create message
     const message = await this.messageRepository.create({
-      content: messageData.content,
-      senderId,
-      conversationId: messageData.conversationId,
+      ...messageData,
       createdAt: new Date(),
       read: false,
     });
@@ -72,12 +71,7 @@ export class MessageController {
       updatedAt: new Date(),
     });
 
-    // Fetch message with sender info
-    const messageWithSender = await this.messageRepository.findById(message.id!, {
-      include: [{relation: 'sender'}],
-    });
-
-    return messageWithSender;
+    return message;
   }
 
   @authenticate('jwt')
