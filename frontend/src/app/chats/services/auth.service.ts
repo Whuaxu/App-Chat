@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../models';
 import { environment } from '../../../environments/environment';
 
@@ -8,11 +8,9 @@ import { environment } from '../../../environments/environment';
   providedIn: 'root'
 })
 export class AuthService {
-  private currentUserSubject = new BehaviorSubject<User | null>(null);
-  private tokenSubject = new BehaviorSubject<string | null>(null);
-
-  currentUser$ = this.currentUserSubject.asObservable();
-  token$ = this.tokenSubject.asObservable();
+  readonly currentUser = signal<User | null>(null);
+  readonly token = signal<string | null>(null);
+  readonly isAuthenticated = computed(() => !!this.token());
 
   constructor(private http: HttpClient) {
     this.loadFromStorage();
@@ -23,8 +21,8 @@ export class AuthService {
     const user = localStorage.getItem('current_user');
     
     if (token && user) {
-      this.tokenSubject.next(token);
-      this.currentUserSubject.next(JSON.parse(user));
+      this.token.set(token);
+      this.currentUser.set(JSON.parse(user));
     }
   }
 
@@ -43,33 +41,29 @@ export class AuthService {
   private handleAuthResponse(response: AuthResponse): void {
     localStorage.setItem('auth_token', response.token);
     localStorage.setItem('current_user', JSON.stringify(response.user));
-    this.tokenSubject.next(response.token);
-    this.currentUserSubject.next(response.user);
+    this.token.set(response.token);
+    this.currentUser.set(response.user);
   }
 
   logout(): void {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('current_user');
-    this.tokenSubject.next(null);
-    this.currentUserSubject.next(null);
+    this.token.set(null);
+    this.currentUser.set(null);
   }
 
   getToken(): string | null {
-    return this.tokenSubject.value;
+    return this.token();
   }
 
   getCurrentUser(): User | null {
-    return this.currentUserSubject.value;
-  }
-
-  isAuthenticated(): boolean {
-    return !!this.tokenSubject.value;
+    return this.currentUser();
   }
 
   getMe(): Observable<User> {
     return this.http.get<User>(`${environment.apiUrl}/users/me`).pipe(
       tap(user => {
-        this.currentUserSubject.next(user);
+        this.currentUser.set(user);
         localStorage.setItem('current_user', JSON.stringify(user));
       })
     );

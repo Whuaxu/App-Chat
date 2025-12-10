@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, input, output, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil, of } from 'rxjs';
@@ -13,14 +13,17 @@ import { UserService } from '../../../services/user.service';
   styleUrl: './new-chat.scss'
 })
 export class NewChat { 
-  @Input() users: User[] = [];
-  @Input() currentUserId?: string;
-  @Output() close = new EventEmitter<void>();
-  @Output() userSelected = new EventEmitter<User>();
+  users = input<User[]>([]);
+  currentUserId = input<string | undefined>();
+  
+  // Signal outputs
+  close = output<void>();
+  userSelected = output<User>();
 
-  searchQuery = '';
-  filteredUsers: User[] = [];
-  isSearching = false;
+  // Signals for reactive state
+  readonly searchQuery = signal('');
+  readonly filteredUsers = signal<User[]>([]);
+  readonly isSearching = signal(false);
   
   private searchSubject = new Subject<string>();
   private destroy$ = new Subject<void>();
@@ -42,20 +45,21 @@ export class NewChat {
       distinctUntilChanged(),
       switchMap(query => {
         if (!query || query.trim().length === 0) {
-          this.isSearching = false;
+          this.isSearching.set(false);
           return of([]);
         }
-        this.isSearching = true;
+        this.isSearching.set(true);
         return this.userService.searchUsers(query);
       }),
       takeUntil(this.destroy$)
     ).subscribe(users => {
-      this.filteredUsers = users.filter(u => u.id !== this.currentUserId);
-      this.isSearching = false;
+      this.filteredUsers.set(users.filter(u => u.id !== this.currentUserId()));
+      this.isSearching.set(false);
     });
   }
 
   onSearchChange(query: string): void {
+    this.searchQuery.set(query);
     this.searchSubject.next(query);
   }
 

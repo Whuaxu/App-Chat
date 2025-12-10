@@ -3,10 +3,10 @@
         <div class="sidebar-header">
             <div class="user-info">
                 <div class="avatar">{{ getUserInitial() }}</div>
-                <span class="username">{{ currentUser?.username }}</span>
+                <span class="username">{{ currentUser()?.username }}</span>
             </div>
             <div class="header-actions">
-                <button class="new-chat-btn" (click)="showNewChatModal = true" title="Nueva conversación">
+                <button class="new-chat-btn" (click)="showNewChatModal.set(true)" title="Nueva conversación">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2">
                         <path d="M12 5v14M5 12h14" />
@@ -22,13 +22,13 @@
                 </button>
             </div>
         </div>
-        <app-conversation-list [conversations]="conversations" [selectedConversationId]="selectedConversation?.id"
-            [currentUserId]="currentUser?.id" [onlineUsers]="onlineUsers"
+        <app-conversation-list [conversations]="conversations()" [selectedConversationId]="selectedConversation()?.id"
+            [currentUserId]="currentUser()?.id" [onlineUsers]="wsService.onlineUsers()"
             (conversationSelected)="onConversationSelected($event)" />
     </div>
     <div class="main-content">
-        @if (selectedConversation) {
-        <app-chat-window [conversation]="selectedConversation" [currentUser]="currentUser" [onlineUsers]="onlineUsers"
+        @if (selectedConversation(); as conversation) {
+        <app-chat-window [conversation]="conversation" [currentUser]="currentUser()"
             (messageSent)="onMessageSent($event)" />
         } @else {
         <div class="no-conversation">
@@ -38,13 +38,18 @@
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
                 <h3>Selecciona una conversación</h3>
+                <p>O inicia una nueva conversación con el botón +</p>
             </div>
         </div>
         }
     </div>
 </div>
 
-@if (showNewChatModal) {
-<app-new-chat [users]="availableUsers" [currentUserId]="currentUser?.id" (close)="showNewChatModal = false"
-    (userSelected)="startNewChat($event)" />
-}
+@if (showNewChatModal()) {
+      <app-new-chat
+        [users]="availableUsers()"
+        [currentUserId]="currentUser()?.id"
+        (close)="showNewChatModal.set(false)"
+        (userSelected)="startNewChat($event)"
+      />
+    }

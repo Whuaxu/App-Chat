@@ -1,8 +1,7 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, input, output, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil } from 'rxjs';
-import { Conversation, Message, User, OnlineUser } from '../../../models';
+import { Conversation, Message, User } from '../../../models';
 import { ConversationService } from '../../../services/conversation.service';
 import { WebSocketService } from '../../../services/websocket.service';
 
@@ -14,35 +13,73 @@ import { WebSocketService } from '../../../services/websocket.service';
 })
   
 export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
-  @Input() conversation!: Conversation;
-  @Input() currentUser: User | null = null;
-  @Input() onlineUsers: OnlineUser[] = [];
-  @Output() messageSent = new EventEmitter<string>();
+  conversation = input.required<Conversation>();
+  currentUser = input<User | null>(null);
+  
+  // Signal output
+  messageSent = output<string>();
 
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
 
-  messages: Message[] = [];
-  newMessage = '';
-  typingUser: string | null = null;
-  isOnline = false;
+  // Signals for reactive state
+  readonly messages = signal<Message[]>([]);
+  readonly newMessage = signal('');
+  readonly typingUser = signal<string | null>(null);
+  
+  // Computed signals
+  readonly isOnline = computed(() => {
+    const otherParticipantId = this.conversation().participantIds.find(
+      id => id !== this.currentUser()?.id
+    );
+    return this.wsService.onlineUsers().some(u => u.userId === otherParticipantId);
+  });
+  
+  readonly otherParticipantName = computed(() => {
+    const conv = this.conversation();
+    if (conv.name) return conv.name;
+    
+    const otherParticipant = conv.participants?.find(
+      p => p.id !== this.currentUser()?.id
+    );
+    return otherParticipant?.username || 'Usuario';
+  });
+  
   private shouldScrollToBottom = true;
-  private destroy$ = new Subject<void>();
   private typingTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private conversationService: ConversationService,
     private wsService: WebSocketService
-  ) {}
+  ) {
+    // Effect to handle new messages - only for current conversation
+    effect(() => {
+      const message = this.wsService.newMessage();
+      const currentConvId = this.conversation().id;
+      
+      if (message && message.conversationId === currentConvId) {
+        this.messages.update(msgs => [...msgs, message]);
+        this.shouldScrollToBottom = true;
+      }
+    }, { allowSignalWrites: true });
+
+    // Effect to handle typing events - only for current conversation
+    effect(() => {
+      const typingData = this.wsService.typing();
+      const currentConvId = this.conversation().id;
+      const currentUserId = this.currentUser()?.id;
+      
+      if (typingData && typingData.conversationId === currentConvId && 
+          typingData.userId !== currentUserId) {
+        this.typingUser.set(typingData.isTyping ? typingData.username : null);
+      }
+    }, { allowSignalWrites: true });
+  }
 
   ngOnInit(): void {
     this.loadMessages();
-    this.setupWebSocketListeners();
-    this.checkOnlineStatus();
   }
 
   ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
     if (this.typingTimeout) {
       clearTimeout(this.typingTimeout);
     }
@@ -55,47 +92,15 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private loadMessages(): void {
-    this.conversationService.getMessages(this.conversation.id).subscribe({
+    this.conversationService.getMessages(this.conversation().id).subscribe({
       next: (messages) => {
-        this.messages = messages;
+        this.messages.set(messages);
         this.shouldScrollToBottom = true;
       },
       error: (error) => {
         console.error('Error loading messages:', error);
       }
     });
-  }
-
-  private setupWebSocketListeners(): void {
-    this.wsService.newMessage$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(message => {
-        if (message.conversationId === this.conversation.id) {
-          this.messages.push(message);
-          this.shouldScrollToBottom = true;
-        }
-      });
-
-    this.wsService.typing$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(data => {
-        if (data.conversationId === this.conversation.id && data.userId !== this.currentUser?.id) {
-          this.typingUser = data.isTyping ? data.username : null;
-        }
-      });
-
-    this.wsService.onlineUsers$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        this.checkOnlineStatus();
-      });
-  }
-
-  private checkOnlineStatus(): void {
-    const otherParticipantId = this.conversation.participantIds.find(
-      id => id !== this.currentUser?.id
-    );
-    this.isOnline = this.onlineUsers.some(u => u.userId === otherParticipantId);
   }
 
   private scrollToBottom(): void {
@@ -106,42 +111,33 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
     } catch (err) {}
   }
 
-  getOtherParticipantName(): string {
-    if (this.conversation.name) return this.conversation.name;
-    
-    const otherParticipant = this.conversation.participants?.find(
-      p => p.id !== this.currentUser?.id
-    );
-    return otherParticipant?.username || 'Usuario';
-  }
-
   formatTime(date: Date | string): string {
     const d = new Date(date);
     return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
   }
 
   onTyping(): void {
-    this.wsService.sendTyping(this.conversation.id, true);
+    this.wsService.sendTyping(this.conversation().id, true);
     
     if (this.typingTimeout) {
       clearTimeout(this.typingTimeout);
     }
     
     this.typingTimeout = setTimeout(() => {
-      this.wsService.sendTyping(this.conversation.id, false);
+      this.wsService.sendTyping(this.conversation().id, false);
     }, 2000);
   }
 
   sendMessage(): void {
-    const content = this.newMessage.trim();
+    const content = this.newMessage().trim();
     if (!content) return;
 
     this.messageSent.emit(content);
-    this.newMessage = '';
+    this.newMessage.set('');
     
     if (this.typingTimeout) {
       clearTimeout(this.typingTimeout);
     }
-    this.wsService.sendTyping(this.conversation.id, false);
+    this.wsService.sendTyping(this.conversation().id, false);
   }
 }

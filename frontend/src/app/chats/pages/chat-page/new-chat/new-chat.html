@@ -12,14 +12,14 @@
         </div>
         <div class="modal-body">
             <div class="search-container">
-                <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange($event)"
+                <input type="text" [ngModel]="searchQuery()" (ngModelChange)="onSearchChange($event)"
                     placeholder="Buscar usuario por nombre o email..." class="search-input" autocomplete="off">
-                @if (isSearching) {
+                @if (isSearching()) {
                 <div class="search-loading">Buscando...</div>
                 }
             </div>
             <div class="user-list">
-                @for (user of filteredUsers; track user.id) {
+                @for (user of filteredUsers(); track user.id) {
                 <div class="user-item" (click)="selectUser(user)">
                     <div class="user-avatar">
                         {{ user.username.charAt(0).toUpperCase() }}
@@ -31,9 +31,9 @@
                 </div>
                 } @empty {
                 <div class="no-users">
-                    @if (searchQuery.length > 0 && !isSearching) {
+                    @if (searchQuery().length > 0 && !isSearching()) {
                     <p>No se encontraron usuarios</p>
-                    } @else if (searchQuery.length === 0) {
+                    } @else if (searchQuery().length === 0) {
                     <p>Escribe para buscar usuarios</p>
                     }
                 </div>

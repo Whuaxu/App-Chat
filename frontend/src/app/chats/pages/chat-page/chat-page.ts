@@ -1,5 +1,5 @@
 // chat-whatsapp.component.ts
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
@@ -7,7 +7,7 @@ import { AuthService } from '../../services/auth.service';
 import { ConversationService } from '../../services/conversation.service';
 import { UserService } from '../../services/user.service';
 import { WebSocketService } from '../../services/websocket.service';
-import { User, Conversation, OnlineUser } from '../../models';
+import { User, Conversation, OnlineUser, Message } from '../../models';
 import { ConversationList } from './conversation-list/conversation-list';
 import { ChatWindow } from './chat-window/chat-window';
 import { NewChat } from './new-chat/new-chat';
@@ -20,12 +20,13 @@ import { NewChat } from './new-chat/new-chat';
   styleUrls: ['./chat-page.scss']
 })
 export default class ChatPage implements OnInit, OnDestroy {
-  currentUser: User | null = null;
-  conversations: Conversation[] = [];
-  selectedConversation: Conversation | null = null;
-  availableUsers: User[] = [];
-  onlineUsers: OnlineUser[] = [];
-  showNewChatModal = false;
+  readonly conversations = signal<Conversation[]>([]);
+  readonly selectedConversation = signal<Conversation | null>(null);
+  readonly availableUsers = signal<User[]>([]);
+  readonly showNewChatModal = signal(false);
+  
+  // Get currentUser from authService
+  readonly currentUser = computed(() => this.authService.currentUser());
   
   private destroy$ = new Subject<void>();
 
@@ -33,24 +34,40 @@ export default class ChatPage implements OnInit, OnDestroy {
     private authService: AuthService,
     private conversationService: ConversationService,
     private userService: UserService,
-    private wsService: WebSocketService,
+    readonly wsService: WebSocketService,
     private router: Router,
     private route: ActivatedRoute
-  ) {}
+  ) {
+    // Effect to handle WebSocket messages and update conversation list
+    effect(() => {
+      const message = this.wsService.newMessage();
+      if (message) {
+        this.handleNewMessage(message);
+      }
+    }, { allowSignalWrites: true });
+
+    // Effect to handle message notifications from other conversations
+    effect(() => {
+      const notification = this.wsService.messageNotification();
+      if (notification) {
+        this.handleMessageNotification(notification);
+      }
+    }, { allowSignalWrites: true });
+  }
 
   ngOnInit(): void {
-    this.currentUser = this.authService.getCurrentUser();
     this.loadConversations();
     this.loadUsers();
-    this.setupWebSocket();
+    this.wsService.connect();
     this.handleRouteParams();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    if (this.selectedConversation) {
-      this.wsService.leaveConversation(this.selectedConversation.id);
+    const selected = this.selectedConversation();
+    if (selected) {
+      this.wsService.leaveConversation(selected.id);
     }
     this.wsService.disconnect();
   }
@@ -75,11 +92,14 @@ export default class ChatPage implements OnInit, OnDestroy {
     this.conversationService.createConversation(userId).subscribe({
       next: (conversation) => {
         // Add to conversations list if not exists
-        const existingIndex = this.conversations.findIndex(c => c.id === conversation.id);
+        const conversations = this.conversations();
+        const existingIndex = conversations.findIndex(c => c.id === conversation.id);
         if (existingIndex === -1) {
-          this.conversations.unshift(conversation);
+          this.conversations.set([conversation, ...conversations]);
         } else {
-          this.conversations[existingIndex] = conversation;
+          const updated = [...conversations];
+          updated[existingIndex] = conversation;
+          this.conversations.set(updated);
         }
         this.selectConversation(conversation);
       },
@@ -93,11 +113,14 @@ export default class ChatPage implements OnInit, OnDestroy {
     this.conversationService.getConversation(conversationId).subscribe({
       next: (conversation) => {
         // Add to conversations list if not exists
-        const existingIndex = this.conversations.findIndex(c => c.id === conversation.id);
+        const conversations = this.conversations();
+        const existingIndex = conversations.findIndex(c => c.id === conversation.id);
         if (existingIndex === -1) {
-          this.conversations.unshift(conversation);
+          this.conversations.set([conversation, ...conversations]);
         } else {
-          this.conversations[existingIndex] = conversation;
+          const updated = [...conversations];
+          updated[existingIndex] = conversation;
+          this.conversations.set(updated);
         }
         this.selectConversation(conversation);
       },
@@ -110,76 +133,67 @@ export default class ChatPage implements OnInit, OnDestroy {
   }
 
   private selectConversation(conversation: Conversation): void {
-    if (this.selectedConversation) {
-      this.wsService.leaveConversation(this.selectedConversation.id);
+    const selected = this.selectedConversation();
+    if (selected) {
+      this.wsService.leaveConversation(selected.id);
     }
-    this.selectedConversation = conversation;
+    this.selectedConversation.set(conversation);
     this.wsService.joinConversation(conversation.id);
   }
 
-  private setupWebSocket(): void {
-    this.wsService.connect();
-    
-    this.wsService.onlineUsers$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(users => {
-        this.onlineUsers = users;
-      });
-
-    this.wsService.newMessage$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(message => {
-        // Update conversation list with new message
-        const convIndex = this.conversations.findIndex(c => c.id === message.conversationId);
-        if (convIndex > -1) {
-          this.conversations[convIndex].lastMessage = message;
-          this.conversations[convIndex].updatedAt = message.createdAt;
-          // Move to top
-          const conv = this.conversations.splice(convIndex, 1)[0];
-          this.conversations.unshift(conv);
-        }
-      });
-
-    this.wsService.messageNotification$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(({ conversationId, message }) => {
-        // Update conversation in list if not currently viewing it
-        const convIndex = this.conversations.findIndex(c => c.id === conversationId);
-        if (convIndex > -1) {
-          this.conversations[convIndex].lastMessage = message;
-          this.conversations[convIndex].updatedAt = message.createdAt;
-        }
-      });
+  private handleNewMessage(message: Message): void {
+    // Update conversation list with new message
+    const conversations = this.conversations();
+    const convIndex = conversations.findIndex(c => c.id === message.conversationId);
+    if (convIndex > -1) {
+      const updated = [...conversations];
+      updated[convIndex] = {
+        ...updated[convIndex],
+        lastMessage: message,
+        updatedAt: message.createdAt
+      };
+      // Move to top
+      const [conv] = updated.splice(convIndex, 1);
+      updated.unshift(conv);
+      this.conversations.set(updated);
+    }
   }
 
-  private loadUsers(): void {
-    
-    this.userService.getUsers()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (users) => {
-          
-          this.availableUsers = users.filter(u => u.id !== this.currentUser?.id);
-        },
-        error: (error) => {
-          console.error('❌ Error loading users:', error);
-        }
-      });
+  private handleMessageNotification(data: {conversationId: string; message: Message}): void {
+    // Update conversation in list if not currently viewing it
+    const conversations = this.conversations();
+    const convIndex = conversations.findIndex(c => c.id === data.conversationId);
+    if (convIndex > -1) {
+      const updated = [...conversations];
+      updated[convIndex] = {
+        ...updated[convIndex],
+        lastMessage: data.message,
+        updatedAt: data.message.createdAt
+      };
+      this.conversations.set(updated);
+    }
   }
 
   private loadConversations(): void {
-    
-    this.conversationService.getConversations()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (conversations) => {
-          
-          this.conversations = conversations;
-        },
-        error: (error) => {
-          console.error('❌ Error loading conversations:', error);
-        }
-      });
+    this.conversationService.getConversations().subscribe({
+      next: (conversations) => {
+        this.conversations.set(conversations);
+      },
+      error: (error) => {
+        console.error('Error loading conversations:', error);
+      }
+    });
+  }
+
+  private loadUsers(): void {
+    this.userService.getUsers().subscribe({
+      next: (users) => {
+        this.availableUsers.set(users);
+      },
+      error: (error) => {
+        console.error('Error loading users:', error);
+      }
+    });
   }
 
   onConversationSelected(conversation: Conversation): void {
@@ -188,9 +202,10 @@ export default class ChatPage implements OnInit, OnDestroy {
   }
 
   onMessageSent(content: string): void {
-    if (!this.selectedConversation) return;
+    const selected = this.selectedConversation();
+    if (!selected) return;
     
-    this.conversationService.sendMessage(this.selectedConversation.id, content).subscribe({
+    this.conversationService.sendMessage(selected.id, content).subscribe({
       next: (message) => {
         // Message will be received via WebSocket
       },
@@ -201,13 +216,14 @@ export default class ChatPage implements OnInit, OnDestroy {
   }
 
   startNewChat(user: User): void {
-    this.showNewChatModal = false;
+    this.showNewChatModal.set(false);
     // Navigate to user chat URL which will create/get the conversation
     this.router.navigate(['/chat/user', user.id]);
   }
 
   getUserInitial(): string {
-    return this.currentUser?.username?.charAt(0).toUpperCase() || '?';
+    const user = this.currentUser();
+    return user?.username?.charAt(0).toUpperCase() || '?';
   }
 
   logout(): void {

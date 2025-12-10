@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, input, output, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Conversation, OnlineUser } from '../../../models';
 
@@ -9,11 +9,13 @@ import { Conversation, OnlineUser } from '../../../models';
   styleUrl: './conversation-list.scss'
 })
 export class ConversationList {
-  @Input() conversations: Conversation[] = [];
-  @Input() selectedConversationId?: string;
-  @Input() currentUserId?: string;
-  @Input() onlineUsers: OnlineUser[] = [];
-  @Output() conversationSelected = new EventEmitter<Conversation>();
+  conversations = input<Conversation[]>([]);
+  selectedConversationId = input<string | undefined>();
+  currentUserId = input<string | undefined>();
+  onlineUsers = input<OnlineUser[]>([]);
+  
+  // Signal output
+  conversationSelected = output<Conversation>();
 
   selectConversation(conversation: Conversation): void {
     this.conversationSelected.emit(conversation);
@@ -23,16 +25,16 @@ export class ConversationList {
     if (conversation.name) return conversation.name;
     
     const otherParticipant = conversation.participants?.find(
-      p => p.id !== this.currentUserId
+      p => p.id !== this.currentUserId()
     );
     return otherParticipant?.username || 'Usuario';
   }
 
   isParticipantOnline(conversation: Conversation): boolean {
     const otherParticipantId = conversation.participantIds.find(
-      id => id !== this.currentUserId
+      id => id !== this.currentUserId()
     );
-    return this.onlineUsers.some(u => u.userId === otherParticipantId);
+    return this.onlineUsers().some(u => u.userId === otherParticipantId);
   }
 
   formatTime(date: Date | string): string {

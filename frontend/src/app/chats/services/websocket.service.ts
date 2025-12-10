@@ -1,5 +1,4 @@
-import { Injectable, OnDestroy } from '@angular/core';
-import { BehaviorSubject, Observable, Subject } from 'rxjs';
+import { Injectable, OnDestroy, signal } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { Message, OnlineUser } from '../models';
 import { AuthService } from './auth.service';
@@ -11,17 +10,12 @@ import { environment } from '../../../environments/environment';
 export class WebSocketService implements OnDestroy {
   private socket: Socket | null = null;
   
-  private onlineUsersSubject = new BehaviorSubject<OnlineUser[]>([]);
-  private newMessageSubject = new Subject<Message>();
-  private messageNotificationSubject = new Subject<{conversationId: string; message: Message}>();
-  private typingSubject = new Subject<{userId: string; username: string; conversationId: string; isTyping: boolean}>();
-  private connectionStatusSubject = new BehaviorSubject<boolean>(false);
-
-  onlineUsers$ = this.onlineUsersSubject.asObservable();
-  newMessage$ = this.newMessageSubject.asObservable();
-  messageNotification$ = this.messageNotificationSubject.asObservable();
-  typing$ = this.typingSubject.asObservable();
-  connectionStatus$ = this.connectionStatusSubject.asObservable();
+  // Signals for reactive state
+  readonly onlineUsers = signal<OnlineUser[]>([]);
+  readonly newMessage = signal<Message | null>(null);
+  readonly messageNotification = signal<{conversationId: string; message: Message} | null>(null);
+  readonly typing = signal<{userId: string; username: string; conversationId: string; isTyping: boolean} | null>(null);
+  readonly connectionStatus = signal<boolean>(false);
 
   constructor(private authService: AuthService) {}
 
@@ -43,40 +37,40 @@ export class WebSocketService implements OnDestroy {
 
     this.socket.on('connect', () => {
       console.log('WebSocket connected');
-      this.connectionStatusSubject.next(true);
+      this.connectionStatus.set(true);
     });
 
     this.socket.on('disconnect', () => {
       console.log('WebSocket disconnected');
-      this.connectionStatusSubject.next(false);
+      this.connectionStatus.set(false);
     });
 
     this.socket.on('online-users', (users: OnlineUser[]) => {
-      this.onlineUsersSubject.next(users);
+      this.onlineUsers.set(users);
     });
 
     this.socket.on('user-online', (user: OnlineUser) => {
-      const current = this.onlineUsersSubject.value;
+      const current = this.onlineUsers();
       if (!current.find(u => u.userId === user.userId)) {
-        this.onlineUsersSubject.next([...current, user]);
+        this.onlineUsers.set([...current, user]);
       }
     });
 
     this.socket.on('user-offline', (user: OnlineUser) => {
-      const current = this.onlineUsersSubject.value;
-      this.onlineUsersSubject.next(current.filter(u => u.userId !== user.userId));
+      const current = this.onlineUsers();
+      this.onlineUsers.set(current.filter(u => u.userId !== user.userId));
     });
 
     this.socket.on('new-message', (message: Message) => {
-      this.newMessageSubject.next(message);
+      this.newMessage.set(message);
     });
 
     this.socket.on('message-notification', (data: {conversationId: string; message: Message}) => {
-      this.messageNotificationSubject.next(data);
+      this.messageNotification.set(data);
     });
 
     this.socket.on('user-typing', (data: {userId: string; username: string; conversationId: string; isTyping: boolean}) => {
-      this.typingSubject.next(data);
+      this.typing.set(data);
     });
 
     this.socket.on('error', (error: {message: string}) => {
@@ -88,7 +82,7 @@ export class WebSocketService implements OnDestroy {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
-      this.connectionStatusSubject.next(false);
+      this.connectionStatus.set(false);
     }
   }
 

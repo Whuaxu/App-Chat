@@ -1,6 +1,6 @@
 <div class="conversation-list">
-    @for (conversation of conversations; track conversation.id) {
-    <div class="conversation-item" [class.selected]="conversation.id === selectedConversationId"
+    @for (conversation of conversations(); track conversation.id) {
+    <div class="conversation-item" [class.selected]="conversation.id === selectedConversationId()"
         (click)="selectConversation(conversation)">
         <div class="conversation-avatar" [class.online]="isParticipantOnline(conversation)">
             {{ getOtherParticipantName(conversation).charAt(0).toUpperCase() }}
