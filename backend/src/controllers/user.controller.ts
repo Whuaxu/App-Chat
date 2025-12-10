@@ -17,9 +17,9 @@ import {
   requestBody,
   response,
 } from '@loopback/rest';
-import {User} from '../models';
-import {Credentials, UserRepository} from '../repositories';
-import {validateCredentials} from '../services/validator';
+import { User } from '../models';
+import { Credentials, UserRepository } from '../repositories';
+import { validateCredentials } from '../services/validator';
 import * as lodash from 'lodash';
 import { inject } from '@loopback/core';
 import { CredentialsRequestBody, UserRegistrationSchema } from './specs/user.controller.spec';
@@ -33,7 +33,7 @@ import { authenticate, AuthenticationBindings } from '@loopback/authentication';
 export class UserController {
   constructor(
     @repository(UserRepository)
-    public userRepository : UserRepository,
+    public userRepository: UserRepository,
 
     @inject(PasswordHasherBindings.PASSWORD_HASHER)
     public hasher: BcryptHasher,
@@ -43,12 +43,12 @@ export class UserController {
 
     @inject(TokenServiceBindings.TOKEN_SERVICE)
     public jwtService: JWTService,
-  ) {}
+  ) { }
 
   @post('/users')
   @response(200, {
     description: 'User model instance',
-    content: {'application/json': {schema: getModelSchemaRef(User)}},
+    content: { 'application/json': { schema: getModelSchemaRef(User) } },
   })
   async create(
     @requestBody({
@@ -69,7 +69,7 @@ export class UserController {
   @get('/users/count')
   @response(200, {
     description: 'User model count',
-    content: {'application/json': {schema: CountSchema}},
+    content: { 'application/json': { schema: CountSchema } },
   })
   async count(
     @param.where(User) where?: Where<User>,
@@ -84,7 +84,7 @@ export class UserController {
       'application/json': {
         schema: {
           type: 'array',
-          items: getModelSchemaRef(User, {includeRelations: true}),
+          items: getModelSchemaRef(User, { includeRelations: true }),
         },
       },
     },
@@ -98,13 +98,13 @@ export class UserController {
   @patch('/users')
   @response(200, {
     description: 'User PATCH success count',
-    content: {'application/json': {schema: CountSchema}},
+    content: { 'application/json': { schema: CountSchema } },
   })
   async updateAll(
     @requestBody({
       content: {
         'application/json': {
-          schema: getModelSchemaRef(User, {partial: true}),
+          schema: getModelSchemaRef(User, { partial: true }),
         },
       },
     })
@@ -119,13 +119,13 @@ export class UserController {
     description: 'User model instance',
     content: {
       'application/json': {
-        schema: getModelSchemaRef(User, {includeRelations: true}),
+        schema: getModelSchemaRef(User, { includeRelations: true }),
       },
     },
   })
   async findById(
     @param.path.string('id') id: string,
-    @param.filter(User, {exclude: 'where'}) filter?: FilterExcludingWhere<User>
+    @param.filter(User, { exclude: 'where' }) filter?: FilterExcludingWhere<User>
   ): Promise<User> {
     return this.userRepository.findById(id, filter);
   }
@@ -139,7 +139,7 @@ export class UserController {
     @requestBody({
       content: {
         'application/json': {
-          schema: getModelSchemaRef(User, {partial: true}),
+          schema: getModelSchemaRef(User, { partial: true }),
         },
       },
     })
@@ -170,21 +170,21 @@ export class UserController {
   @post('/users/register')
   @response(200, {
     description: 'Register a new user',
-    content: {'application/json': {schema: getModelSchemaRef(User)}},
+    content: { 'application/json': { schema: getModelSchemaRef(User) } },
   })
-  
+
   async register(@requestBody({
-      content: {
-        'application/json': {
-          schema: UserRegistrationSchema,
-        },
+    content: {
+      'application/json': {
+        schema: UserRegistrationSchema,
       },
-    }) userData: {email: string; password: string; username: string},
-  ): Promise<{token: string}> {
+    },
+  }) userData: { email: string; password: string; username: string },
+  ): Promise<{ token: string; user: Omit<User, 'password'> }> {
     validateCredentials(lodash.pick(userData, ['email', 'password']));
 
     const hashedPassword = await this.hasher.hashPassword(userData.password);
-    
+
     const user = await this.userService.createUser({
       ...userData,
       password: hashedPassword,
@@ -192,7 +192,12 @@ export class UserController {
     const userProfile = this.userService.convertToUserProfile(user);
     const token = await this.jwtService.generateToken(userProfile);
 
-    return Promise.resolve({token});
+    const { password, ...userWithoutPassword } = user;
+
+    return {
+      token,
+      user: userWithoutPassword as Omit<User, 'password'>
+    };
 
   }
 
@@ -213,8 +218,9 @@ export class UserController {
       },
     },
   })
-  async login(@requestBody(CredentialsRequestBody) credentials: Credentials,
-): Promise<{token: string}> {
+  async login(
+    @requestBody(CredentialsRequestBody) credentials: Credentials
+  ): Promise<{ token: string; user: Omit<User, 'password'> }> {
 
     const user = await this.userService.verifyCredentials(credentials);
 
@@ -222,7 +228,12 @@ export class UserController {
 
     const token = await this.jwtService.generateToken(userProfile);
 
-    return Promise.resolve({token});
+    const { password, ...userWithoutPassword } = user;
+
+    return {
+      token,
+      user: userWithoutPassword as Omit<User, 'password'>
+    };
   }
 
   @authenticate('jwt')
@@ -231,7 +242,7 @@ export class UserController {
     description: 'Current user profile',
     content: {
       'application/json': {
-        schema: getModelSchemaRef(User, {exclude: ['password']}),
+        schema: getModelSchemaRef(User, { exclude: ['password'] }),
       },
     },
   })
