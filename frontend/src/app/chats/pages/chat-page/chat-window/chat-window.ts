@@ -25,6 +25,7 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
   readonly messages = signal<Message[]>([]);
   readonly newMessage = signal('');
   readonly typingUser = signal<string | null>(null);
+  private previousConversationId = signal<string | null>(null);
   
   // Computed signals
   readonly isOnline = computed(() => {
@@ -51,6 +52,16 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
     private conversationService: ConversationService,
     private wsService: WebSocketService
   ) {
+
+    effect(() => {
+      const conv = this.conversation();
+      if (conv && conv.id !== this.previousConversationId()) {
+        this.previousConversationId.set(conv.id);
+        this.loadMessages();
+      }
+    }, { allowSignalWrites: true });
+
+
     // Effect to handle new messages - only for current conversation
     effect(() => {
       const message = this.wsService.newMessage();
@@ -76,7 +87,7 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngOnInit(): void {
-    this.loadMessages();
+    
   }
 
   ngOnDestroy(): void {
