@@ -58,6 +58,7 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
       if (conv && conv.id !== this.previousConversationId()) {
         this.previousConversationId.set(conv.id);
         this.loadMessages();
+        this.scrollToBottom();
       }
     }, { allowSignalWrites: true });
 
@@ -151,6 +152,10 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
       createdAt: new Date(),
       read: false
     };
+
+    this.messageSent.emit(content);
+
+    this.scrollToBottom();
 
     // Envía el mensaje al WebSocket
     this.wsService.sendMessage(this.conversation().id, content);
