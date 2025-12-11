@@ -36,10 +36,9 @@ export class MessageController {
         'application/json': {
           schema: {
             type: 'object',
-            required: ['conversationId', 'senderId', 'content'],
+            required: ['conversationId', 'content'],
             properties: {
               conversationId: {type: 'string'},
-              senderId: {type: 'string'},
               content: {type: 'string'},
             },
           },
@@ -61,6 +60,7 @@ export class MessageController {
     // Create message
     const message = await this.messageRepository.create({
       ...messageData,
+      senderId,
       createdAt: new Date(),
       read: false,
     });
@@ -68,8 +68,9 @@ export class MessageController {
     // Update conversation's last message and timestamp
     await this.conversationRepository.updateById(messageData.conversationId, {
       lastMessageId: message.id,
-      updatedAt: new Date(),
     });
+
+    //this.wsServer.io.to(messageData.conversationId).emit('new-message', message);
 
     return message;
   }
