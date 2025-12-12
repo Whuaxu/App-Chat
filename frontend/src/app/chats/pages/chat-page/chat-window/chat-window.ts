@@ -59,8 +59,8 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
         this.previousConversationId.set(conv.id);
         this.loadMessages();
         this.scrollToBottom();
-      }
-    }, { allowSignalWrites: true });
+      } 
+    }); 
 
 
     // Effect to handle new messages - only for current conversation
@@ -84,7 +84,7 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
           typingData.userId !== currentUserId) {
         this.typingUser.set(typingData.isTyping ? typingData.username : null);
       }
-    }, { allowSignalWrites: true });
+    });
   }
 
   ngOnInit(): void {
@@ -153,12 +153,18 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
       read: false
     };
 
-    this.messageSent.emit(content);
-
     this.scrollToBottom();
 
-    // Envía el mensaje al WebSocket
-    this.wsService.sendMessage(this.conversation().id, content);
+    // Envía el mensaje via HTTP - el backend lo guardará y hará broadcast via WebSocket
+    this.conversationService.sendMessage(this.conversation().id, content).subscribe({
+      next: (savedMessage) => {
+        console.log('✅ Mensaje enviado y guardado:', savedMessage);
+        // El mensaje llegará automáticamente via WebSocket al effect
+      },
+      error: (error) => {
+        console.error('❌ Error enviando mensaje:', error);
+      }
+    });
 
     // Añade el mensaje localmente para mostrarlo de inmediato
     const updatedMessages = [...this.messages(), message];
