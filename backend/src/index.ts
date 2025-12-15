@@ -34,7 +34,7 @@ if (require.main === module) {
   const config = {
     rest: {
       port: +(process.env.PORT ?? 3000),
-      host: process.env.HOST || '0.0.0.0',
+      host: '0.0.0.0',
       gracePeriodForClose: 5000, // 5 seconds
       openApiSpec: {
         setServersFromRequest: true,
