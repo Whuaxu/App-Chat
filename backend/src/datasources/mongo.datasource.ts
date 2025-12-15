@@ -4,12 +4,12 @@ import {juggler} from '@loopback/repository';
 const config = {
   name: 'mongo',
   connector: 'mongodb',
-  url: '',
-  host: '127.0.0.1',
-  port: 27017,
+  url: process.env.MONGODB_URI || '',
+  host: '',
+  port: 0,
   user: '',
   password: '',
-  database: 'chatapp',
+  database: '',
   useNewUrlParser: true
 };
 
