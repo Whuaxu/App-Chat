@@ -17,6 +17,9 @@ export async function main(options: ApplicationConfig = {}) {
   const httpServer = createServer(app.restServer.requestHandler);
   const wsServer = new WebSocketServer(httpServer, app);
   
+  // Bind WebSocket server to application context so controllers can inject it
+  app.bind('websocket.server').to(wsServer);
+  
   // Start HTTP server for WebSocket on a different port
   const wsPort = +(process.env.WS_PORT ?? 3002);
   httpServer.listen(wsPort, () => {
@@ -31,15 +34,9 @@ if (require.main === module) {
   const config = {
     rest: {
       port: +(process.env.PORT ?? 3000),
-      host: process.env.HOST || '127.0.0.1',
-      // The `gracePeriodForClose` provides a graceful close for http/https
-      // servers with keep-alive clients. The default value is `Infinity`
-      // (don't force-close). If you want to immediately destroy all sockets
-      // upon stop, set its value to `0`.
-      // See https://www.npmjs.com/package/stoppable
+      host: process.env.HOST || '0.0.0.0',
       gracePeriodForClose: 5000, // 5 seconds
       openApiSpec: {
-        // useful when used with OpenAPI-to-GraphQL to locate your application
         setServersFromRequest: true,
       },
       cors: {
