@@ -9,7 +9,7 @@ const config = {
   port: 0,
   user: '',
   password: '',
-  database: '',
+  database: 'chatapp',
   useNewUrlParser: true
 };
 
