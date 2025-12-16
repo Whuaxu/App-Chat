@@ -3,6 +3,7 @@ import {Server, Socket} from 'socket.io';
 import {verify} from 'jsonwebtoken';
 import {ChatApplication} from '../application';
 import {MessageRepository, ConversationRepository, UserRepository} from '../repositories';
+import {TokenServiceBindings, TokenServiceConstants} from '../keys';
 
 interface DecodedToken {
   id: string;
@@ -44,18 +45,17 @@ export class WebSocketServer {
           return next(new Error('Authentication error: Token required'));
         }
 
-        const jwtSecret = process.env.JWT_SECRET;
-        if (!jwtSecret) {
-          console.error('JWT_SECRET environment variable is not set');
-          return next(new Error('Authentication error: Server configuration error'));
-        }
+        const jwtSecret = TokenServiceConstants.TOKEN_SECRET_VALUE;
+        
         const decoded = verify(token as string, jwtSecret) as DecodedToken;
         
         socket.data.userId = decoded.id;
         socket.data.username = decoded.username;
         
+        console.log(`✅ Token validado para usuario: ${decoded.username}`);
         next();
       } catch (err) {
+        console.error('❌ Error validando token:', err);
         next(new Error('Authentication error: Invalid token'));
       }
     });
@@ -64,7 +64,7 @@ export class WebSocketServer {
   private setupEventHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
       const userId = socket.data.userId;
-      const username = socket.data.username;
+      const username = socket.data.username; 
 
       console.log(`User connected: ${username} (${userId})`);
 
@@ -91,7 +91,8 @@ export class WebSocketServer {
       // Handle joining a conversation room
       socket.on('join-conversation', (conversationId: string) => {
         socket.join(conversationId);
-        console.log(`User ${username} joined conversation ${conversationId}`);
+        console.log(`✅ User ${username} joined conversation ${conversationId}`);
+        console.log(`   Rooms del usuario:`, Array.from(socket.rooms));
       });
 
       // Handle leaving a conversation room
@@ -101,22 +102,26 @@ export class WebSocketServer {
       });
 
       // Handle new message
-      socket.on('send-message', async (data: {conversationId: string; content: string}) => {
+      socket.on('send-message', async (conversationId: string, content: string) => {
         try {
+          console.log(`📨 Mensaje recibido de ${username}: "${content}" en conversación ${conversationId}`);
+          
           const messageRepository = await this.app.getRepository(MessageRepository);
           const conversationRepository = await this.app.getRepository(ConversationRepository);
 
           // Create message in database
           const message = await messageRepository.create({
-            content: data.content,
+            content: content,
             senderId: userId,
-            conversationId: data.conversationId,
+            conversationId: conversationId,
             createdAt: new Date(),
             read: false,
           });
 
+          console.log(`💾 Mensaje guardado en BD con ID: ${message.id}`);
+
           // Update conversation
-          await conversationRepository.updateById(data.conversationId, {
+          await conversationRepository.updateById(conversationId, {
             lastMessageId: message.id,
             updatedAt: new Date(),
           });
@@ -127,14 +132,16 @@ export class WebSocketServer {
           });
 
           // Broadcast message to all users in the conversation
-          this.io.to(data.conversationId).emit('new-message', messageWithSender);
+          console.log(`📤 Broadcasting mensaje a conversación ${conversationId}`);
+          this.io.to(conversationId).emit('new-message', messageWithSender);
 
           // Also notify users who might not be in the conversation room
-          const conversation = await conversationRepository.findById(data.conversationId);
+          const conversation = await conversationRepository.findById(conversationId);
           conversation.participantIds.forEach(participantId => {
             if (participantId !== userId && this.connectedUsers.has(participantId)) {
+              console.log(`🔔 Notificando a usuario ${participantId}`);
               this.connectedUsers.get(participantId)?.socket.emit('message-notification', {
-                conversationId: data.conversationId,
+                conversationId: conversationId,
                 message: messageWithSender,
               });
             }
