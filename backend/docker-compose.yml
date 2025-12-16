@@ -6,7 +6,7 @@ services:
     image: chatapp-backend:latest
     container_name: chatapp-backend
     ports:
-      - "3001:3001"
+      - "3001:3000"
     environment:
       - MONGODB_URI=mongodb://mongo:27017/chatapp
 
