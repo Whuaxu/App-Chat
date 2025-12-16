@@ -10,7 +10,6 @@ import { environment } from '../../../environments/environment';
 export class WebSocketService implements OnDestroy {
   private socket: Socket | null = null;
   
-  // Signals for reactive state
   readonly onlineUsers = signal<OnlineUser[]>([]);
   readonly newMessage = signal<Message | null>(null);
   readonly messageNotification = signal<{conversationId: string; message: Message} | null>(null);
@@ -62,7 +61,7 @@ export class WebSocketService implements OnDestroy {
     });
 
     this.socket.on('new-message', (message: Message) => {
-      this.newMessage.set(message);
+      this.newMessage.set({...message});
     });
 
     this.socket.on('message-notification', (data: {conversationId: string; message: Message}) => {
@@ -88,14 +87,22 @@ export class WebSocketService implements OnDestroy {
 
   joinConversation(conversationId: string): void {
     this.socket?.emit('join-conversation', conversationId);
+    console.log(`📥 Joined conversation: ${conversationId}`);
   }
 
   leaveConversation(conversationId: string): void {
     this.socket?.emit('leave-conversation', conversationId);
+    console.log(`📤 Left conversation: ${conversationId}`);
   }
 
   sendMessage(conversationId: string, content: string): void {
+    if (!this.socket) {
+      console.error('❌ WebSocket no está conectado');
+      return;
+    }
+
     this.socket?.emit('send-message', { conversationId, content });
+    console.log(`📤 Mensaje enviado: ${content} a la conversación ${conversationId}`);
   }
 
   sendTyping(conversationId: string, isTyping: boolean): void {
