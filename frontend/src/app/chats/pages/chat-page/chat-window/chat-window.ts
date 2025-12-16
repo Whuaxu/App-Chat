@@ -68,24 +68,18 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
     effect(() => {
       const message = this.wsService.newMessage();
       
-      console.log('🔍 [Effect] Ejecutándose...');
-      console.log('🔍 [Effect] Mensaje del signal:', message);
-      
       if (!message) {
         console.log('⚠️ [Effect] Mensaje es null, saltando');
         return;
       }
       
       const currentConvId = this.conversation().id;
-      console.log('🔍 [Effect] ConversationId actual:', currentConvId);
-      console.log('🔍 [Effect] ¿Coinciden?', message.conversationId === currentConvId);
       
       if (message.conversationId === currentConvId) {
-        console.log('✅ [Effect] Añadiendo mensaje a la lista');
         
-          this.messages.update(msgs => [...msgs, message]);
-          this.shouldScrollToBottom = true;
-          console.log('✅ [Effect] Mensaje añadido. Total mensajes:', this.messages().length);
+        this.messages.update(msgs => [...msgs, message]);
+        this.shouldScrollToBottom = true;
+        console.log('✅ [Effect] Mensaje añadido. Total mensajes:', this.messages().length);
         
       } else {
         console.log('❌ [Effect] Mensaje NO coincide con conversación actual');
@@ -102,9 +96,6 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
       const currentConvId = this.conversation().id;
       const currentUserId = this.currentUser()?.id;
       
-      console.log('🔍 [Effect] Datos de typing recibidos:', typingData);
-      console.log('🔍 [Effect] ConversationId actual:', currentConvId);
-      console.log('🔍 [Effect] UserId actual:', currentUserId);
       if (typingData && typingData.conversationId === currentConvId && 
           typingData.userId !== currentUserId) {
         this.typingUser.set(typingData.isTyping ? typingData.username : null);
@@ -167,7 +158,7 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
 
   sendMessage(): void {
     const content = this.newMessage().trim();
-    console.log('📤 [sendMessage] Iniciando envío. Content:', content);
+    
     if (!content) {
       console.log('⚠️ [sendMessage] Contenido vacío, cancelando');
       return;
