@@ -52,7 +52,6 @@ export class WebSocketServer {
         socket.data.userId = decoded.id;
         socket.data.username = decoded.username;
         
-        console.log(`✅ Token validado para usuario: ${decoded.username}`);
         next();
       } catch (err) {
         console.error('❌ Error validando token:', err);
@@ -91,14 +90,11 @@ export class WebSocketServer {
       // Handle joining a conversation room
       socket.on('join-conversation', (conversationId: string) => {
         socket.join(conversationId);
-        console.log(`✅ User ${username} joined conversation ${conversationId}`);
-        console.log(`   Rooms del usuario:`, Array.from(socket.rooms));
       });
 
       // Handle leaving a conversation room
       socket.on('leave-conversation', (conversationId: string) => {
         socket.leave(conversationId);
-        console.log(`User ${username} left conversation ${conversationId}`);
       });
 
       // Handle new message
