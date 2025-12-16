@@ -155,7 +155,7 @@ export default class ChatPage implements OnInit, OnDestroy {
       // Move to top
       const [conv] = updated.splice(convIndex, 1);
       updated.unshift(conv);
-      this.conversations.set(updated);
+      // this.conversations.set(updated);
     }
   }
 
