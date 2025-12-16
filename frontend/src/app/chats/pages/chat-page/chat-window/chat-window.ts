@@ -1,4 +1,4 @@
-import { Component, input, output, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, signal, computed, effect } from '@angular/core';
+import { Component, input, output, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, signal, computed, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Conversation, Message, User } from '../../../models';
@@ -59,6 +59,7 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
         this.previousConversationId.set(conv.id);
         this.loadMessages();
         this.scrollToBottom();
+        this.wsService.newMessage.set(null)
       } 
     }); 
 
@@ -66,13 +67,34 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
     // Effect to handle new messages - only for current conversation
     effect(() => {
       const message = this.wsService.newMessage();
-      const currentConvId = this.conversation().id;
       
-      if (message && message.conversationId === currentConvId) {
-        this.messages.update(msgs => [...msgs, message]);
-        this.shouldScrollToBottom = true;
+      console.log('🔍 [Effect] Ejecutándose...');
+      console.log('🔍 [Effect] Mensaje del signal:', message);
+      
+      if (!message) {
+        console.log('⚠️ [Effect] Mensaje es null, saltando');
+        return;
       }
-    }, { allowSignalWrites: true });
+      
+      const currentConvId = this.conversation().id;
+      console.log('🔍 [Effect] ConversationId actual:', currentConvId);
+      console.log('🔍 [Effect] ¿Coinciden?', message.conversationId === currentConvId);
+      
+      if (message.conversationId === currentConvId) {
+        console.log('✅ [Effect] Añadiendo mensaje a la lista');
+        
+          this.messages.update(msgs => [...msgs, message]);
+          this.shouldScrollToBottom = true;
+          console.log('✅ [Effect] Mensaje añadido. Total mensajes:', this.messages().length);
+        
+      } else {
+        console.log('❌ [Effect] Mensaje NO coincide con conversación actual');
+      }
+
+      setTimeout(() => this.scrollToBottom(), 30);
+      // Resetear el signal para evitar reejecutar el effect con el mismo mensaje
+      //  this.wsService.newMessage.set(null);
+    });
 
     // Effect to handle typing events - only for current conversation
     effect(() => {
@@ -80,6 +102,9 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
       const currentConvId = this.conversation().id;
       const currentUserId = this.currentUser()?.id;
       
+      console.log('🔍 [Effect] Datos de typing recibidos:', typingData);
+      console.log('🔍 [Effect] ConversationId actual:', currentConvId);
+      console.log('🔍 [Effect] UserId actual:', currentUserId);
       if (typingData && typingData.conversationId === currentConvId && 
           typingData.userId !== currentUserId) {
         this.typingUser.set(typingData.isTyping ? typingData.username : null);
@@ -124,9 +149,9 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   formatTime(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date; 
-  return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
-}
+    const d = typeof date === 'string' ? new Date(date) : date; 
+    return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  }
 
   onTyping(): void {
     this.wsService.sendTyping(this.conversation().id, true);
@@ -142,18 +167,13 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
 
   sendMessage(): void {
     const content = this.newMessage().trim();
-    if (!content) return;
+    console.log('📤 [sendMessage] Iniciando envío. Content:', content);
+    if (!content) {
+      console.log('⚠️ [sendMessage] Contenido vacío, cancelando');
+      return;
+    }
 
-    const message: Message = {
-      id: '', // El backend debería generar este ID
-      conversationId: this.conversation().id,
-      senderId: this.currentUser()?.id || '',
-      content,
-      createdAt: new Date(),
-      read: false
-    };
-
-    this.scrollToBottom();
+    console.log('📤 [sendMessage] Enviando a conversación:', this.conversation().id);
 
     // Envía el mensaje via HTTP - el backend lo guardará y hará broadcast via WebSocket
     this.conversationService.sendMessage(this.conversation().id, content).subscribe({
@@ -165,10 +185,6 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
         console.error('❌ Error enviando mensaje:', error);
       }
     });
-
-    // Añade el mensaje localmente para mostrarlo de inmediato
-    const updatedMessages = [...this.messages(), message];
-    this.messages.set(updatedMessages);
 
     // Limpia el input
     this.newMessage.set('');
