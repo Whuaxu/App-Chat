@@ -55,12 +55,15 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
 
     effect(() => {
       const conv = this.conversation();
+      
       if (conv && conv.id !== this.previousConversationId()) {
         this.previousConversationId.set(conv.id);
         this.loadMessages();
         this.scrollToBottom();
         this.wsService.newMessage.set(null)
       } 
+
+      setTimeout(() => this.scrollToBottom(), 30);
     }); 
 
 
@@ -86,8 +89,7 @@ export class ChatWindow implements OnInit, OnDestroy, AfterViewChecked {
       }
 
       setTimeout(() => this.scrollToBottom(), 30);
-      // Resetear el signal para evitar reejecutar el effect con el mismo mensaje
-      //  this.wsService.newMessage.set(null);
+      
     });
 
     // Effect to handle typing events - only for current conversation
