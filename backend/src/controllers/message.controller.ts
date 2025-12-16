@@ -14,6 +14,7 @@ import {authenticate} from '@loopback/authentication';
 import {SecurityBindings, securityId, UserProfile} from '@loopback/security';
 import {Message} from '../models';
 import {MessageRepository, ConversationRepository} from '../repositories';
+import {WebSocketServer} from '../websocket';
 
 export class MessageController {
   constructor(
@@ -21,6 +22,8 @@ export class MessageController {
     public messageRepository: MessageRepository,
     @repository(ConversationRepository)
     public conversationRepository: ConversationRepository,
+    @inject('websocket.server')
+    private wsServer: WebSocketServer,
   ) {}
 
   @authenticate('jwt')
@@ -70,7 +73,12 @@ export class MessageController {
       lastMessageId: message.id,
     });
 
-    //this.wsServer.io.to(messageData.conversationId).emit('new-message', message);
+      // Emitir el mensaje por WebSocket a la sala de la conversación
+      try {
+        this.wsServer.getIO().to(messageData.conversationId).emit('new-message', message);
+      } catch (err) {
+        console.error('[WebSocket] Error al emitir new-message:', err);
+      }
 
     return message;
   }
